@@ -7,7 +7,21 @@ from random import seed
 from random import sample
 
 def 3Pm(Y):
-
+  # Y is the list that contains value of calibrated parameters
+  # read in the value of calibrated parameters
+  kdeco = Y[0] # optimal reaction rate of decomposition, mgC/L/h
+  knitr = Y[1] # optimal reaction rate of nitrification, mgN/L/h
+  kdeni = Y[2] # optimal reaction rate of denitrification, mgN/L/h
+  kplant = Y[3] # optimal reaction rate of plant uptake, mgN/L/h
+  KMdeco = Y[4] # Michaelis constant of decomposition
+  KMnitr = Y[5] # Michaelis constant of nitrification
+  KMdeni = Y[6] # Michaelis constant of denitrification
+  KMplant = Y[7] # Michaelis constant of plant uptake
+  FST = Y[8] # a constant used to estimate optimal reation rates in storage layer. FST = optimal reaction rate in storage layer / optimal reaction rate in soil layer
+  pDOM = Y[9] # fraction of organic matters in the soil layer that is dissolved into the liquid phase in each time step
+  ROCSP = Y[10] # rate of external organic suppy to the bioretention cell, in unit of mgC/m2/d
+  fsed = Y[11] # factor to estimate particulate orfanic matter removal through sedimentation in the forebay
+  
   #define the list of events for calibration
   Clist = []
   NC = len(Clist)
@@ -19,6 +33,8 @@ def 3Pm(Y):
   DSTMax = 399 # Depth of the bioretention storage layer, in unit of mm
   FC = 0.25 # field capacity of soil layer
   WP = 0.18 # wilting point of soil layer
+  NmaxS = 0.4 # porosity of soil layer
+  NmaxST = 0.38 # porosity of storage layer
   CNRrain = 20 # average C:N ratio in the stormwater runoff
   CNRsoil = 15.7 # average C:N ratio in the soil layer
   limit = 0.02 # lab detection limit of NH4-N. When simulated and field tested concentrations are noth below this limit, simulation is considered accurate, and no errors are calculated for NH4-N load.
@@ -27,8 +43,39 @@ def 3Pm(Y):
   # Set initial conditions, especially initial contents of organic matters and nitrogen species.These values can be estimated from literature if no lab testes resuilts are available. 
   # Further analysis is needed to understand model sensitivity to each initial condition. Previous analysis showed that 3P-m is resilient to slight overestimation of initial DOC and nitrogen species contents. 
   OCS0 = 9070 * Msoil # initial content of total organic carbon in the soil layer in unit of mgC. 
-  DOC0 = [0, 0, 7*0.4*DSMas*AreaBR*FC, 0] # initial dissolved organic carbon in the forebay, pounding layer, soil layer, and storage layer, in unit of mgC. 
-  # initial DOC in soil layer = 7 mg/L (average DOC  
+  DOC0 = [0, 0, 7*DSMax*AreaBR*FC, 0] # initial dissolved organic carbon (DOC) in the forebay, pounding layer, soil layer, and storage layer, in unit of mgC. 
+  # initial DOC in soil layer = 7 mg/L (average DOC coincentration in underdrain effluent tested from field) * volume of water in soil layer
+  # initial content of DOC and N species are set to 0 in forebay, pounding layer, and storage layer as it is assumed that there is no standing water in these layers initially.
+  DON0 = [0, 0, DOC0[2]/CNRSoil, 0] # initial Dissolve Organic Nitrogen (DON) content in forebay, pounding layer, soil layer, and storage layer, in unit of mgN
+  # initial DON in soil layer is estimated with carbon to nitrogen ratio of the organic matter in soil layer.
+  NO30 = [0, 0, DONs[2]*0.29, 0] # initial nitrate-nitrogen (NO3-N) content in the forebay, pounding layer, soil layer, and storage layer, in unit of mgN. 
+  # initial NO3-N in soil layer is estimated with a ratio of NO3-N / DON in the underdrain effleunt tested in the lab.
+  NH40 = [0, 0, 0, 0] # initial content of ammonia-nitrogen (NH4-N) in the forebay, pounding layer, soil layer, and storage layer in unit of mg N
+  # initial content of NH4-N is estimated as 0, according to the aerobic condition in the soil layer when water content is at Field Capacity.
+
+  # define other parameters 
+  fs = 0.7 # level of saturation at which denitrification starts in the soil and storage layer
+  pgas = 0.01 # percentage of NO3-N converted to N2O during denitrification process. Rough estimate of N2O emission from bioretention system.
+  timestep = 1/6 # timestep in unit of hour
+
+  # lists for Event Mean Concentrations (EMCs)  and used for calibration
+  Linflow = [[], [], [], []] #list of EMCs of DOC, DON, NO3-N, and NH4-N in bioretention inflow, in unit of mg /L. THIS IS REQUIRED INPUT DATA
+  LunField = [[], [], [], []] #list of EMCs of DOC, DON, NO3-N, and NH4-N in the bioretention udnerdrain effluent from field tested dataset, in unit of mg/L. THIS IS REQUIRED INPUT DATA
+  LunSim = [[], [], [], []] #list of EMCs of DOC, DON, NO3-N, and NH4-N in the bioretention udnerdrain effluent from model simulated dataset, in unit of mg/L
+  # LbpField = [[], [], [], []] #list of EMCs of DOC, DON, NO3-N, and NH4-N in the bypass or overflow from field tested dataset, in unit of mg/L. INPUT DATA
+  # LbpSim = [[], [], [], []] #list of EMCs of DOC, DON, NO3-N, and NH4-N inn the bypass or overflow from model simulated dataset, in unit of mg/L
+
+  # lists used for each event:
+  InMass = [0, 0, 0, 0] # Load of DOC, DON, NO3-N, and NH4-N in stormwater inflow of each event, mg
+  OutMassUn = [0, 0, 0, 0] # Load of DOC, DON, NO3-N, and NH4-N in bioretention underdrain effluent of each event, mg
+  OutMassBP = [0, 0, 0, 0] # Load of DOC, DON, NO3-N, and NH4-N in bypass / overflow of each event, mg
+  
+  # read in hydraulics data from xls files
+  path = 'HSheet.xls' # define the workbook that has waterflow time series from SWMM BMP model
+  Hbook = xlrd.open_workbook(path)
+  Hsheet = Hbook.sheet_by_name('name of worksheet')
+
+  # start simulation
 
 
 
