@@ -1,0 +1,39 @@
+import xlrd
+import xlwt
+import math
+import numpy as np
+import random
+from random import seed
+from random import sample
+
+def 3Pm(Y):
+
+  #define the list of events for calibration
+  Clist = []
+  NC = len(Clist)
+
+  # physical design parameters of the simulated bioretention system
+  AreaF = 150 # Surface area of the forebay in unit of m2
+  AreaBR = 862 # Surface area of the bioretention cell in unit of m2
+  DSMax = 762 # Depth of the bioretention cell soil layer, in unit of mm
+  DSTMax = 399 # Depth of the bioretention storage layer, in unit of mm
+  FC = 0.25 # field capacity of soil layer
+  WP = 0.18 # wilting point of soil layer
+  CNRrain = 20 # average C:N ratio in the stormwater runoff
+  CNRsoil = 15.7 # average C:N ratio in the soil layer
+  limit = 0.02 # lab detection limit of NH4-N. When simulated and field tested concentrations are noth below this limit, simulation is considered accurate, and no errors are calculated for NH4-N load.
+  Msoil = 862*0.762*1100 # Mass of dry soil in the soil layer in unit of kg, Msoil = area in (m2) * depth of soil in (m) * dry soil density (kg/m3)
+
+  # Set initial conditions, especially initial contents of organic matters and nitrogen species.These values can be estimated from literature if no lab testes resuilts are available. 
+  # Further analysis is needed to understand model sensitivity to each initial condition. Previous analysis showed that 3P-m is resilient to slight overestimation of initial DOC and nitrogen species contents. 
+  OCS0 = 9070 * Msoil # initial content of total organic carbon in the soil layer in unit of mgC. 
+  DOC0 = [0, 0, 7*0.4*DSMas*AreaBR*FC, 0] # initial dissolved organic carbon in the forebay, pounding layer, soil layer, and storage layer, in unit of mgC. 
+  # initial DOC in soil layer = 7 mg/L (average DOC  
+
+
+
+
+
+
+
+
