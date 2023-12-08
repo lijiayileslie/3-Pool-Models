@@ -6,21 +6,23 @@ import random
 from random import seed
 from random import sample
 
-def 3Pm(Y):
+def 3P(Y):
   # Y is the list that contains value of calibrated parameters
   # read in the value of calibrated parameters
+  # the first 8 parameters are calibrated for both 3P-m and 3P-1 models
   kdeco = Y[0] # optimal reaction rate of decomposition, mgC/L/h
   knitr = Y[1] # optimal reaction rate of nitrification, mgN/L/h
   kdeni = Y[2] # optimal reaction rate of denitrification, mgN/L/h
   kplant = Y[3] # optimal reaction rate of plant uptake, mgN/L/h
-  KMdeco = Y[4] # Michaelis constant of decomposition
-  KMnitr = Y[5] # Michaelis constant of nitrification
-  KMdeni = Y[6] # Michaelis constant of denitrification
-  KMplant = Y[7] # Michaelis constant of plant uptake
-  FST = Y[8] # a constant used to estimate optimal reation rates in storage layer. FST = optimal reaction rate in storage layer / optimal reaction rate in soil layer
-  pDOM = Y[9] # fraction of organic matters in the soil layer that is dissolved into the liquid phase in each time step
-  ROCSP = Y[10] # rate of external organic suppy to the bioretention cell, in unit of mgC/m2/d
-  fsed = Y[11] # factor to estimate particulate orfanic matter removal through sedimentation in the forebay
+  FST = Y[4] # a constant used to estimate optimal reation rates in storage layer. FST = optimal reaction rate in storage layer / optimal reaction rate in soil layer
+  pDOM = Y[5] # fraction of organic matters in the soil layer that is dissolved into the liquid phase in each time step
+  ROCSP = Y[6] # rate of external organic suppy to the bioretention cell, in unit of mgC/m2/d
+  fsed = Y[7] # factor to estimate particulate orfanic matter removal through sedimentation in the forebay
+  # the next 4 parameters are only calibrated with 3P-m model
+  KMdeco = Y[8] # Michaelis constant of decomposition
+  KMnitr = Y[9] # Michaelis constant of nitrification
+  KMdeni = Y[10] # Michaelis constant of denitrification
+  KMplant = Y[11] # Michaelis constant of plant uptake
   
   #define the list of events for calibration
   Clist = []
@@ -69,13 +71,26 @@ def 3Pm(Y):
   InMass = [0, 0, 0, 0] # Load of DOC, DON, NO3-N, and NH4-N in stormwater inflow of each event, mg
   OutMassUn = [0, 0, 0, 0] # Load of DOC, DON, NO3-N, and NH4-N in bioretention underdrain effluent of each event, mg
   OutMassBP = [0, 0, 0, 0] # Load of DOC, DON, NO3-N, and NH4-N in bypass / overflow of each event, mg
+  VT = [0, 0, 0] # total volume of inflow to forebay, bypass / overflow, and underdrain effluent in each event
   
   # read in hydraulics data from xls files
+  '''
+  This file should contain: (A) time series of flow rates for inflow to forebay, inflow to pounding layer, infiltration from pounding layer to soil layer, 
+  percolation from soil layer to storage layer, infiltration from storage layer to deeper underground flow, bioretention underdrain effluen't
+  bypass or overflow of bioretention system, evapotransporation; (B) time series of water depth in forebay, water depth in pounding layer,  soil moisture content in soil layer,
+ water depth in storage layer; (C) time series of DOC, DON, NO3-N, and NH4-N concentrations in inflow to forebay and / or bioretention pounding layer; in 10 min timestep.
+  '''
   path = 'HSheet.xls' # define the workbook that has waterflow time series from SWMM BMP model
   Hbook = xlrd.open_workbook(path)
   Hsheet = Hbook.sheet_by_name('name of worksheet')
 
   # start simulation
+  row = 3 # first row of record readed for simulation
+  EventNo = 0 # record of which event is calibrated
+
+  while row < 10000: # define the number of records used for simulation
+    DF = float(Hsheet.cell(row, column1).value) # water depth in forebay in unit of mm. define value for column1. Use unit convertion when neccessary.
+    DFn = float(Hsheet.cell（row+1, column1).value) # water depth in forebay at the next time step, in unit of mm. Use unit convertion when neccessary.
 
 
 
