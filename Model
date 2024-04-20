@@ -78,7 +78,7 @@ def 3P(Y):
   This file should contain: (A) time series of flow rates for inflow to forebay, inflow to pounding layer, infiltration from pounding layer to soil layer, 
   percolation from soil layer to storage layer, infiltration from storage layer to deeper underground flow, bioretention underdrain effluen't
   bypass or overflow of bioretention system, evapotransporation; (B) time series of water depth in forebay, water depth in pounding layer,  soil moisture content in soil layer,
- water depth in storage layer; (C) time series of DOC, DON, NO3-N, and NH4-N concentrations in inflow to forebay and / or bioretention pounding layer; in 10 min timestep.
+  water depth in storage layer; (C) time series of DOC, DON, NO3-N, and NH4-N concentrations in inflow to forebay and / or bioretention pounding layer; in 10 min timestep.
   '''
   path = 'HSheet.xls' # define the workbook that has waterflow time series from SWMM BMP model
   Hbook = xlrd.open_workbook(path)
@@ -91,6 +91,54 @@ def 3P(Y):
   while row < 10000: # define the number of records used for simulation
     DF = float(Hsheet.cell(row, column1).value) # water depth in forebay in unit of mm. define value for column1. Use unit convertion when neccessary.
     DFn = float(Hsheet.cell（row+1, column1).value) # water depth in forebay at the next time step, in unit of mm. Use unit convertion when neccessary.
+    inflowT = float(Hsheet.cell(row,4).value)*4.546/60 # inflow rate to forebay, SWMM reported total inflow of storage unit, converted to LPS
+    bypass = float(Hsheet.cell(row,5).value)*4.546/60 # bypass, SWMM reported flooding of storage unit, converted to LPS
+    DP = float(Hsheet.cell(row,6).value)*25.4 # water depth in the BR pounding layer, surface Level in SWMM BR report, mm
+    DPn = float(Hsheet.cell(row+1, 6).value)*25.4 # water depth in pounding layer at the next time step, mm
+    DST = float(Hsheet.cell(row, 7).value)*25.4 # depth in BR storage layer, Storage Level in SWMM BR report, mm
+    DSTn = float(Hsheet.cell(row+1, 7).value)*25.4 # water depth in forebay at the next time step
+    theta = float(Hsheet.cell(row, 8).value) # moisture content in BR soil layer, Soil Moisture Content in SWMM BR report, unitless
+    thetan = float(Hsheet.cell(row+1, 8).value) # moisture content in soil layer for the next time step, unitless
+    sat = theta/nmax # saturation rate of BR soil layer, unitless
+    inflowBR = float(Hsheet.cell(row,9).value)*25.4 # inflow to BR, total inflow in SWMM BR report, mm/h
+    infil = float(Hsheet.cell(row,10).value)*25.4 # surface infiltration to BR soil layer, surface infiltration in SWMM BR report, mm/h
+    SP = float(Hsheet.cell(row,11).value)*25.4 # water flow from soil layer to storage layer, Soil Percolation in SWMM BR report, mm/h
+    seepageBR = float(Hsheet.cell(row,12).value)*25.4 # seepage into groundwater from BR, seepage in SWMM BR report, mm/h
+    underdrain = float(Hsheet.cell(row,13).value)*25.4 # underdrain effluent, Drain Outflow drom SWMM BR report, mm/h
+    EVT = float(Hsheet.cell(row,14).value)*25.4 # evapotranporation rate for both forebay and BR, Total Evap in SWMM BR report, mm、 (10 min time step)
+    # we now have time series
+    NO3in = Hsheet.cell(row, 15).value #NO3 concentration in forebay inflow, mg N/L
+    DONin = Hsheet.cell(row, 17).value # DON concentration in forebay inflow, mg N/L
+    DOCin = Hsheet.cell(row, 16).value # DOC concentration inforebay inflow, mg C/L
+    T = Hsheet.cell(row, 18).value # air temporature in degree C
+
+    # calculate organic carbon supply as a function of temporature. In this case, assume that OCSP start at 0 degree C and increases with T. 
+    if T >0:
+        OCSP = (pOCSP/24/6)*(T**0.5) #OCSP in the unit of mgC/10 min, for the entire BR, do not need to multiply bioretention area, or time step
+    else:
+        OCSP = 0
+        # calculate fsat and ftem
+        ftem = 0.1 + 0.9*T/(T + math.exp(9.93- 0.312*T))
+        # in pounding layer and forebay, denitrification does not happen, other reactions at constant rates
+        # in soil layer, fsat for denitrification:
+        if sat >= 0.7:
+            fsatdeni = (sat-0.7)/(1-0.7)
+        else:
+            fsatdeni = 0
+        # in soil layer, for other reactions, optimal condition is at FC
+        if theta >= FC:
+            fsatother = (nmax-theta)/(nmax-FC)
+        elif theta >= WP:
+            fsatother = (theta - WP)/(FC-WP)
+        else:
+            fsatother = 0
+        # in the storage layer, use DST/DSTMax to represent saturation rate:
+        if DST / DSTMax >= 0.7:
+            fstdeni = (DST/DSTMax-0.7) / (1-0.7)
+            fstother = 0
+        else:
+            fstdeni = 0
+            fstother = 1
 
 
 
