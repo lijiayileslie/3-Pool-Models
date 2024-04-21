@@ -64,8 +64,9 @@ def 3P(Y):
   Linflow = [[], [], [], []] #list of EMCs of DOC, DON, NO3-N, and NH4-N in bioretention inflow, in unit of mg /L. THIS IS REQUIRED INPUT DATA
   LunField = [[], [], [], []] #list of EMCs of DOC, DON, NO3-N, and NH4-N in the bioretention udnerdrain effluent from field tested dataset, in unit of mg/L. THIS IS REQUIRED INPUT DATA
   LunSim = [[], [], [], []] #list of EMCs of DOC, DON, NO3-N, and NH4-N in the bioretention udnerdrain effluent from model simulated dataset, in unit of mg/L
-  # LbpField = [[], [], [], []] #list of EMCs of DOC, DON, NO3-N, and NH4-N in the bypass or overflow from field tested dataset, in unit of mg/L. INPUT DATA
-  # LbpSim = [[], [], [], []] #list of EMCs of DOC, DON, NO3-N, and NH4-N inn the bypass or overflow from model simulated dataset, in unit of mg/L
+  # calibration of bypass can be applied but is not required
+  LbpField = [[], [], [], []] #list of EMCs of DOC, DON, NO3-N, and NH4-N in the bypass or overflow from field tested dataset, in unit of mg/L. INPUT DATA
+  LbpSim = [[], [], [], []] #list of EMCs of DOC, DON, NO3-N, and NH4-N inn the bypass or overflow from model simulated dataset, in unit of mg/L
 
   # lists used for each event:
   InMass = [0, 0, 0, 0] # Load of DOC, DON, NO3-N, and NH4-N in stormwater inflow of each event, mg
@@ -117,28 +118,127 @@ def 3P(Y):
         OCSP = (pOCSP/24/6)*(T**0.5) #OCSP in the unit of mgC/10 min, for the entire BR, do not need to multiply bioretention area, or time step
     else:
         OCSP = 0
-        # calculate fsat and ftem
-        ftem = 0.1 + 0.9*T/(T + math.exp(9.93- 0.312*T))
-        # in pounding layer and forebay, denitrification does not happen, other reactions at constant rates
-        # in soil layer, fsat for denitrification:
-        if sat >= 0.7:
-            fsatdeni = (sat-0.7)/(1-0.7)
-        else:
-            fsatdeni = 0
-        # in soil layer, for other reactions, optimal condition is at FC
-        if theta >= FC:
-            fsatother = (nmax-theta)/(nmax-FC)
-        elif theta >= WP:
-            fsatother = (theta - WP)/(FC-WP)
-        else:
-            fsatother = 0
-        # in the storage layer, use DST/DSTMax to represent saturation rate:
-        if DST / DSTMax >= 0.7:
-            fstdeni = (DST/DSTMax-0.7) / (1-0.7)
-            fstother = 0
-        else:
-            fstdeni = 0
-            fstother = 1
+    # calculate fsat and ftem
+    ftem = 0.1 + 0.9*T/(T + math.exp(9.93- 0.312*T))
+    # in pounding layer and forebay, denitrification does not happen, other reactions at constant rates
+    # in soil layer, fsat for denitrification:
+    if sat >= 0.7:
+        fsatdeni = (sat-0.7)/(1-0.7)
+    else:
+        fsatdeni = 0
+    # in soil layer, for other reactions, optimal condition is at FC
+    if theta >= FC:
+        fsatother = (nmax-theta)/(nmax-FC)
+    elif theta >= WP:
+        fsatother = (theta - WP)/(FC-WP)
+    else:
+        fsatother = 0
+    # in the storage layer, use DST/DSTMax to represent saturation rate:
+    if DST / DSTMax >= 0.7:
+        fstdeni = (DST/DSTMax-0.7) / (1-0.7)
+        fstother = 0
+    else:
+        fstdeni = 0
+        fstother = 1
+
+    # Calculation Part A: forebay
+    # biochemical reaction only happens when there is water pounding, and when DF = 0, all mass pools go to 0
+    # when there is no inflow, mass of N and C species remain the same
+    # Then we assume aerobic conditions when there is inflow happening, and anoxic condition when inflow does not happen
+    if DF >0:
+      # mass balance after inflow
+      DOCF = DOCF0 + inflowT * 600 * DOCin  # total pool of OC in the forebay
+      DONF = DONF0 + inflowT * 600 * DONin  # mgN
+      NO3F = NO3F0 + inflowT * 600 * NO3in  # mgN
+      NH4F = NH4F0
+      VF0 = DF * AreaF + inflowT * 600
+
+      # calculate initial concentrations at beginning of time step
+      COCF0 = DOCF / VF0 # initial OC concentration mgC/L
+      CONF0 = DONF / VF0
+      CNH4F0 = NH4F / VF0
+      CNO3F0 = NO3F / VF0
+
+      # calculate effluent concentrations
+      if CONF0>0 and COCF0 >0:
+          CNRF = COCF0 / CONF0
+      else:
+          CNRF = CNRrain
+
+      # no biochemical reactions, only DOC and DON sedimentation
+      if inflowBR >0:
+          RsedC = COCF0 *2/(1+ math.exp(inflowT*psed))
+          RsedN = RsedC / CNRF
+          RsedNO3 = CNO3F0 * 2/(1+math.exp(inflowT *pNO3))
+      else:
+          RsedC = 0
+          RsedN = 0
+          RsedNO3 = 0
+
+      # calculate mass balance after sedimentation
+      DOCF = DOCF - RsedC * VF0
+      DONF = DONF - RsedC * VF0 / CNRF
+      NO3F = NO3F - RsedNO3 * VF0
+
+      # then calculate concentrations
+      COCF = DOCF / VF0
+      CONF = DONF / VF0
+      CNH4F = NH4F / VF0
+      CNO3F = NO3F / VF0
+
+      # then calculate mass balance after effluent
+      WLF = inflowT * 600 - AreaF * (DFn - DF)
+      DOCF0 = DOCF - COCF * WLF
+      DONF0 = DONF - CONF * WLF
+      NH4F0 = NH4F - CNH4F * WLF
+      NO3F0 = NO3F - CNO3F * WLF
+
+  else:
+      # if there is no depth, there should be no water flowing out, but just in case negative value would appear
+      COCF = DOCin
+      CONF = DONin
+      COCF0 = DOCin
+      CONF0 = DONin
+      CNH4F = 0
+      CNO3F = NO3in
+      DOCF0 = 0
+      DONF0 = 0
+      NH4F0 = 0
+      NO3F0 = 0
+
+
+  # calculate biochemical reaction rates in pounding layers.
+  # assume aerobic conditions when inflow happens, anoxic conditions when no inflow happens
+  if DP >0:
+      # mass balance after inflow to BR pounding
+      DOCP = DOCP0 + COCF * inflowBR * AreaBR * timestep
+      DONP = DONP0 + CONF * inflowBR * AreaBR * timestep
+      NH4P = NH4P0 + CNH4F * inflowBR * AreaBR * timestep
+      NO3P = NO3P0 + CNO3F * inflowBR * AreaBR * timestep
+      VP0 = AreaBR * DP + inflowBR * AreaBR * timestep
+
+      # calculate initial concentrations in BR pounding layer
+      COCP = DOCP / VP0
+      CONP = DONP / VP0
+      CNO3P = NO3P / VP0
+      CNH4P = NH4P / VP0
+
+      # calculate mass balance after effluent
+      DOCP0 = DOCP - COCP * (inflowBR * AreaBR * timestep- AreaBR * (DPn - DP))
+      DONP0 = DONP - CONP * (inflowBR * AreaBR * timestep- AreaBR * (DPn - DP))
+      NH4P0 = NH4P - CNH4P * (inflowBR * AreaBR * timestep- AreaBR * (DPn - DP))
+      NO3P0 = NO3P - CNO3P * (inflowBR * AreaBR * timestep- AreaBR * (DPn - DP))
+
+  else:
+      COCP = COCF
+      CONP = CONF
+      CNO3P = CNH4F
+      CNH4P = CNO3F
+      DOCP0 = 0
+      DONP0 = 0
+      NH4P0 = 0
+      NO3P0 = 0
+
 
 
 
