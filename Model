@@ -193,7 +193,7 @@ def 3P(Y):
       NH4F0 = NH4F - CNH4F * WLF
       NO3F0 = NO3F - CNO3F * WLF
 
-  else:
+    else:
       # if there is no depth, there should be no water flowing out, but just in case negative value would appear
       COCF = DOCin
       CONF = DONin
@@ -206,10 +206,9 @@ def 3P(Y):
       NH4F0 = 0
       NO3F0 = 0
 
-
-  # calculate biochemical reaction rates in pounding layers.
-  # assume aerobic conditions when inflow happens, anoxic conditions when no inflow happens
-  if DP >0:
+    # calculate biochemical reaction rates in pounding layers.
+    # assume aerobic conditions when inflow happens, anoxic conditions when no inflow happens
+    if DP >0:
       # mass balance after inflow to BR pounding
       DOCP = DOCP0 + COCF * inflowBR * AreaBR * timestep
       DONP = DONP0 + CONF * inflowBR * AreaBR * timestep
@@ -229,7 +228,7 @@ def 3P(Y):
       NH4P0 = NH4P - CNH4P * (inflowBR * AreaBR * timestep- AreaBR * (DPn - DP))
       NO3P0 = NO3P - CNO3P * (inflowBR * AreaBR * timestep- AreaBR * (DPn - DP))
 
-  else:
+    else:
       COCP = COCF
       CONP = CONF
       CNO3P = CNH4F
@@ -239,11 +238,163 @@ def 3P(Y):
       NH4P0 = 0
       NO3P0 = 0
 
+    # mass balance after infiltration to soil layer
+    # note according to SWMM handbook, all flow rates in unit of length/time uses surface area as a reference. Don't need to time porosity when calculating mass balances
+    if infil >0:
+      OCS = OCS0 - OCS0 * pDOM # right after inflow, a portion of OC dissolved into liquid phase
+      DOCS = DOCS0 + COCP * infil * AreaBR * timestep + OCS0 * pDOM
+      DONS = DONS0 + CONP * infil * AreaBR * timestep + OCS0 * pDOM / CNRsoil  # original DON+ inflow DON + newly dissolved ON as a fraction of newly dissolved OC
+    else:
+      OCS = OCS0
+      DOCS = DOCS0
+      DONS = DONS0
+    NH4S = NH4S0 + CNH4P * infil * AreaBR * timestep
+    NO3S = NO3S0 + CNO3P * infil * AreaBR* timestep
 
+    # calculate concentrations.
+    Vwater = AreaBR * DSMax * theta + infil * AreaBR * timestep
+    COCS0 = DOCS / Vwater
+    CONS0 = DONS/ Vwater
+    CNH4S0 = NH4S / Vwater
+    CNO3S0 = NO3S / Vwater
 
+    # calculate biochemical reaction rates, with fsatdeni and fsatother
+    RdecoS = COCS0 * kdeco * ftem * fsatother * timestep / (KMdeco + COCS0)
+    RnitrS = CNH4S0 * knitr * ftem * fsatother * timestep / (KMnitr + CNH4S0)
+    RdeniS = CNO3S0 * kdeni * ftem * fsatdeni * timestep / (KMdeni + CNO3S0)
+    RimmoNH4S = CNH4S0 * kimmo * ftem * fsatother * timestep / (KMimmo + CNH4S0)
+    RimmoNO3S = CNO3S0 * kimmo * ftem * fsatother * timestep / (KMimmo + CNO3S0)
 
+    # immobolization goes to 0 when total consumed amount exceeds available amount
+    if CNH4S0<(RnitrS + RimmoNH4S):
+      if CNH4S0 < RnitrS:
+        RnitrS = CNH4S0
+        RimmoNH4S = 0
+      else:
+        RimmoNH4S = CNH4S0-RnitrS
 
+    if CNO3S0<(RdeniS + RimmoNO3S):
+      if CNO3S0< RdeniS:
+        RdeniS = CNO3S0
+        RimmoNO3S = 0
+      else:
+        RimmoNO3S = CNO3S0 - RdeniS
 
+    # calculate final concentration at end of biochemical reactions
+    if CONS0 > 0 and COCS0 >0:
+      CNRS = COCS0 / CONS0
+    else:
+      CNRS = CNRrain
 
+    # mass balance after biochemical reactions
+    DOCS = DOCS - RdecoS * Vwater
+    DONS = DONS - RdecoS * Vwater / CNRS
+    NH4S = NH4S + (RdecoS / CNRS - RnitrS - RimmoNH4S) * Vwater
+    NO3S = NO3S + (RnitrS * (1 - pgas) - RdeniS - RimmoNO3S) * Vwater
+    # effluent concentration
+    COCS = DOCS / Vwater
+    CONS = DONS / Vwater
+    CNH4S = NH4S / Vwater
+    CNO3S = NO3S / Vwater
+
+    # mass balance after effluent
+    # water loss in soil layer, Soil percolation + evaporation
+    WLS = infil * AreaBR * timestep - (thetan - theta) * AreaBR * DSMax
+    OCS0 = OCS + OCSP
+    if WLS == EVT:
+      DOCS0 = DOCS
+      DONS0 = DONS
+      NH4S0 = NH4S
+      NO3S0 = NO3S
+    else:
+      DOCS0 = DOCS - COCS * WLS
+      DONS0 = DONS - CONS * WLS
+      NH4S0 = NH4S - CNH4S * WLS
+      NO3S0 = NO3S - CNO3S * WLS
+
+    # calculate initial concentration for biochemical reactions
+    if DST >0:
+      # mass balance of storage layer after soil percolation
+      DOCST = DOCST0 + COCS * SP * AreaBR * timestep
+      DONST = DONST0 + CONS * SP * AreaBR * timestep
+      NH4ST = NH4ST0 + CNH4S * SP * AreaBR * timestep
+      NO3ST = NO3ST0 + CNO3S * SP * AreaBR * timestep
+
+      VST0 = AreaBR * nmaxST * DST + SP * AreaBR * timestep
+
+      COCST0 = DOCST / VST0
+      CONST0 = DONST / VST0
+      CNH4ST0 = NH4ST / VST0
+      CNO3ST0 = NO3ST / VST0
+
+      # calculate biochemical reaction rate, assume aerobic condition when inflow happens, anoxic condition when inflow stops
+      RimmoNH4ST = CNH4ST0 * kimmo * FST * ftem * fstother * timestep / (KMimmo + CNH4ST0)
+      RimmoNO3ST = CNO3ST0 * kimmo * FST * ftem * fstother * timestep / (KMimmo + CNO3ST0)
+      RdecoST = COCST0 * kdeco * FST * fstother * ftem * timestep / (KMdeco + COCST0)
+      RnitrST = CNH4ST0 * knitr * FST * fstother * ftem * timestep / (KMdeco + CNH4ST0)
+      RdeniST = CNO3ST0 * kdeni * FST * fstdeni * ftem * timestep / (KMdeco + CNO3ST0)
+
+      if CNH4ST0 < (RimmoNH4ST + RnitrST):
+        if CNH4ST0 < RnitrST:
+          RnitrST = CNH4ST0
+          RimmoNH4ST = 0
+        else:
+          RimmoNH4ST = CNH4ST0 - RnitrST
+
+      if CNO3ST0<(RimmoNO3ST + RdeniST):
+        if CNO3ST0 < RdeniST:
+          RdeniST = CNO3ST0
+          RimmoNO3ST = 0
+        else:
+          RimmoNO3ST = CNO3ST0 - RdeniST
+
+      # concentrations after biochemical reactions
+      # CONST0 may equal to 0
+      if CONST0 > 0 and COCST0 >0:
+        CNRST = COCST0 / CONST0
+      else:
+        CNRST = CNRrain
+
+      # mass balance after biochemical reaction
+      DOCST = DOCST - RdecoST * VST0
+      DONST = DONST - RdecoST * VST0/ CNRST
+      NH4ST = NH4ST + (RdecoST / CNRST - RimmoNH4ST - RnitrST) * VST0
+      NO3ST = NO3ST + (RnitrST * (1 - pgas) - RimmoNO3ST - RdeniST) * VST0
+
+      # calculate effluent concentration
+      COCST = DOCST / VST0
+      CONST = DONST / VST0
+      CNH4ST = NH4ST / VST0
+      CNO3ST = NO3ST / VST0
+
+      # mass balance after effluent
+      # water loss in storage layer = underdrain + seepage
+      WLST = SP * AreaBR * timestep - AreaBR * nmaxST * (DSTn - DST)
+      DOCST0 = DOCST - COCST * WLST
+      DONST0 = DONST - CONST * WLST
+      NH4ST0 = NH4ST - CNH4ST * WLST
+      NO3ST0 = NO3ST - CNO3ST * WLST
+
+    else:
+      COCST = COCS
+      CONST = CONS
+      CNH4ST = CNH4S
+      CNO3ST = CNO3S
+      DOCST0 = 0
+      DONST0 = 0
+      NH4ST0 = 0
+      NO3ST0 = 0
+
+    # check if any pools or concentrations are negative
+    plist = [DOCF0, DONF0, NH4F0, NO3F0, COCF0, CONF0, COCF, CONF, CNH4F, CNO3F, DOCP0, DONP0, NH4P0, NO3P0, COCP, CONP, CNH4P, CNO3P,
+             DOCS0, DONS0, NH4S0, NO3S0, COCS, CONS, CNH4S, CNO3S, DOCST0, DONST0, NH4ST0, NO3ST0, COCST, CONST, CNH4ST, CNO3ST]
+    ecount = 0
+    for element in plist:
+      if element <0:
+        print('%d event, time %f, first negative element is # %d' %(EventNo, EH, ecount))
+        NErr =NErr - element
+        ecount +=1
+      else:
+        ecount +=1
 
 
