@@ -1,7 +1,7 @@
 import xlrd
 from matplotlib import pyplot as plt
 from DDS2 import DDS
-from  import 
+from 3PmFunction import 3Pm
 
 book1 = xlrd.open_workbook(r'rbook.xls')
 
@@ -9,7 +9,7 @@ Xmin = []
 Xmax = []
 Xinitial = []
 
-Psheet = book1.sheet_by_name('PBNm')
+Psheet = book1.sheet_by_name('3Pm')
 i=2
 while i < 12:
     Xmin.append(float(Psheet.cell(3,i).value))
@@ -18,7 +18,7 @@ while i < 12:
     i+=1
 
 #run DDS algorithm
-dds = DDS(NRMCode, Xmin, Xmax, Xinitial, max_evals=300)
+dds = DDS(3Pm, Xmin, Xmax, Xinitial, max_evals=300)
 dds.plot()
 plt.show()
 print('end of Calibration code')
