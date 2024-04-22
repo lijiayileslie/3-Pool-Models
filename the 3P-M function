@@ -6,7 +6,7 @@ import random
 from random import seed
 from random import sample
 
-def 3P(Y, Start, End):
+def 3Pm(Y):
   # Y is the list that contains value of calibrated parameters
   # read in the value of calibrated parameters
   # the first 8 parameters are calibrated for both 3P-m and 3P-1 models
