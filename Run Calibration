@@ -1,1 +1,24 @@
+import xlrd
+from matplotlib import pyplot as plt
+from DDS2 import DDS
+from  import 
 
+book1 = xlrd.open_workbook(r'rbook.xls')
+
+Xmin = []
+Xmax = []
+Xinitial = []
+
+Psheet = book1.sheet_by_name('PBNm')
+i=2
+while i < 12:
+    Xmin.append(float(Psheet.cell(3,i).value))
+    Xmax.append(float(Psheet.cell(4,i).value))
+    Xinitial.append(float(Psheet.cell(5,i).value))
+    i+=1
+
+#run DDS algorithm
+dds = DDS(NRMCode, Xmin, Xmax, Xinitial, max_evals=300)
+dds.plot()
+plt.show()
+print('end of Calibration code')
