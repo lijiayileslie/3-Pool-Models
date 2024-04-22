@@ -6,7 +6,7 @@ import random
 from random import seed
 from random import sample
 
-def 3P(Y):
+def 3P(Y, Start, End):
   # Y is the list that contains value of calibrated parameters
   # read in the value of calibrated parameters
   # the first 8 parameters are calibrated for both 3P-m and 3P-1 models
@@ -23,6 +23,9 @@ def 3P(Y):
   KMnitr = Y[9] # Michaelis constant of nitrification
   KMdeni = Y[10] # Michaelis constant of denitrification
   KMplant = Y[11] # Michaelis constant of plant uptake
+
+  # Start and End are lists of rows that each event starts and ends. These data are used to calculate the event mean concentration of events of interest
+  # rows that each event starts / ends are now decided manually by now. 
   
   #define the list of events for calibration
   Clist = []
@@ -147,10 +150,10 @@ def 3P(Y):
     # Then we assume aerobic conditions when there is inflow happening, and anoxic condition when inflow does not happen
     if DF >0:
       # mass balance after inflow
-      DOCF = DOCF0 + inflowT * 600 * DOCin  # total pool of OC in the forebay
-      DONF = DONF0 + inflowT * 600 * DONin  # mgN
-      NO3F = NO3F0 + inflowT * 600 * NO3in  # mgN
-      NH4F = NH4F0
+      DOCF = DOC0[0] + inflowT * 600 * DOCin  # total pool of OC in the forebay
+      DONF = DON0[0] + inflowT * 600 * DONin  # mgN
+      NO3F = NO30[0] + inflowT * 600 * NO3in  # mgN
+      NH4F = NH40[0]
       VF0 = DF * AreaF + inflowT * 600
 
       # calculate initial concentrations at beginning of time step
@@ -160,8 +163,8 @@ def 3P(Y):
       CNO3F0 = NO3F / VF0
 
       # calculate effluent concentrations
-      if CONF0>0 and COCF0 >0:
-          CNRF = COCF0 / CONF0
+      if CON0[0]>0 and COC0[0] >0:
+          CNRF = COC0[0] / CON0[0]
       else:
           CNRF = CNRrain
 
@@ -188,10 +191,10 @@ def 3P(Y):
 
       # then calculate mass balance after effluent
       WLF = inflowT * 600 - AreaF * (DFn - DF)
-      DOCF0 = DOCF - COCF * WLF
-      DONF0 = DONF - CONF * WLF
-      NH4F0 = NH4F - CNH4F * WLF
-      NO3F0 = NO3F - CNO3F * WLF
+      DOC0[0] = DOCF - COCF * WLF
+      DON0[0] = DONF - CONF * WLF
+      NH40[0] = NH4F - CNH4F * WLF
+      NO30[0] = NO3F - CNO3F * WLF
 
     else:
       # if there is no depth, there should be no water flowing out, but just in case negative value would appear
@@ -201,10 +204,10 @@ def 3P(Y):
       CONF0 = DONin
       CNH4F = 0
       CNO3F = NO3in
-      DOCF0 = 0
-      DONF0 = 0
-      NH4F0 = 0
-      NO3F0 = 0
+      DOC0[0] = 0
+      DON0[0] = 0
+      NH40[0] = 0
+      NO30[0] = 0
 
     # calculate biochemical reaction rates in pounding layers.
     # assume aerobic conditions when inflow happens, anoxic conditions when no inflow happens
@@ -397,4 +400,44 @@ def 3P(Y):
       else:
         ecount +=1
 
+    # calcualte event mean concentrations at end of each event
+    if EH >= Start[EventNo] and EH < End[EventNo]:
+            OutMassUD[0] += COCST * underdrain *AreaBR *timestep # in unit of mgC
+            OutMassUD[1] += CONST * underdrain *AreaBR *timestep
+            OutMassUD[2] += CNH4ST * underdrain *AreaBR *timestep
+            OutMassUD[3] += CNO3ST * underdrain *AreaBR *timestep
+            OutMassBP[0] += COCF * bypass * 600
+            OutMassBP[1] += CONF * bypass * 600
+            OutMassBP[2] += CNH4F * bypass * 600
+            OutMassBP[3] += CNO3F * bypass * 600
+            InMass[0] += DOCin * inflowT * 600
+            InMass[1] += DONin * inflowT * 600
+            InMass[2] += 0
+            InMass[3] += NO3in * inflowT * 600
+            VTin += inflowT * 600
+            VTun += underdrain * AreaBR * timestep # in unit of L
+            VTbp += bypass * 600 # in unit of L
+
+        elif EH == End[EventNo]:
+            print('end of event %d' %EventNo)
+            LDOCunsim.append(OutMassUD[0] / VTun)
+            LDONunsim.append(OutMassUD[1] / VTun)
+            LNH4unsim.append(OutMassUD[2] / VTun)
+            LNOxunsim.append(OutMassUD[3] / VTun)
+            LDOCbpsim.append(OutMassBP[0] / VTbp)
+            LDONbpsim.append(OutMassBP[1] / VTbp)
+            LNH4bpsim.append(OutMassBP[2] / VTbp)
+            LNOxbpsim.append(OutMassBP[3] / VTbp)
+            LDOCinsim.append(InMass[0] / VTin)
+            LDONinsim.append(InMass[1] / VTin)
+            LNOxinsim.append(InMass[3] / VTin)
+
+            VTun = 0
+            VTbp = 0
+            VTin = 0
+            InMass = [0,0,0,0]
+            OutMassUD = [0,0,0,0]
+            OutMassBP = [0,0,0,0]
+
+            EventNo +=1
 
