@@ -28,8 +28,10 @@ def 3Pm(Y):
   # rows that each event starts / ends are now decided manually by now. 
   
   #define the list of events for calibration
-  Clist = []
+  Clist = [] # required input, define which events are used for calibration
   NC = len(Clist)
+  LunLab = [[], [], [], []] # required input, lab-tested EMC of DOC, DON, NOx, and NH4 in underdrain in each sub list
+  LbpLab = [[], [], [], []] # required input if bypass EMC is used for calibration, lab-tested EMC of DOC, DON, NOx, and NH4 in bypass water each sub list
 
   # physical design parameters of the simulated bioretention system
   AreaF = 150 # Surface area of the forebay in unit of m2
@@ -420,14 +422,16 @@ def 3Pm(Y):
 
         elif EH == End[EventNo]:
             print('end of event %d' %EventNo)
-            LDOCunsim.append(OutMassUD[0] / VTun)
-            LDONunsim.append(OutMassUD[1] / VTun)
-            LNH4unsim.append(OutMassUD[2] / VTun)
-            LNOxunsim.append(OutMassUD[3] / VTun)
-            LDOCbpsim.append(OutMassBP[0] / VTbp)
-            LDONbpsim.append(OutMassBP[1] / VTbp)
-            LNH4bpsim.append(OutMassBP[2] / VTbp)
-            LNOxbpsim.append(OutMassBP[3] / VTbp)
+            LunSim[0].append(OutMassUD[0] / VTun)
+            LunSim[1].append(OutMassUD[1] / VTun)
+            LunSim[2].append(OutMassUD[3] / VTun)
+            LunSim[3].append(OutMassUD[2] / VTun)
+
+            LbpSim[0].append(OutMassBP[0] / VTbp)
+            LbpSim[1].append(OutMassBP[1] / VTbp)
+            LbpSim[2].append(OutMassBP[3] / VTbp)
+            LbpSim[3].append(OutMassBP[2] / VTbp)
+
             LDOCinsim.append(InMass[0] / VTin)
             LDONinsim.append(InMass[1] / VTin)
             LNOxinsim.append(InMass[3] / VTin)
@@ -440,4 +444,21 @@ def 3Pm(Y):
             OutMassBP = [0,0,0,0]
 
             EventNo +=1
+        row +=1
+        TimeCount +=1
 
+    # calculate sum of square of the scaled error of DOC, DON, NO3, NH4 in underdrian effelunt and bypass
+    seDOCun = []
+    seDONun = []
+    seNH4un = []
+    seNO3un = []
+    seDOCbp = []
+    seDONbp = []
+    seNH4bp = []
+    seNO3bp = []
+    SCon = [0, 0, 0, 0, 0, 0]
+    NClist = [0, 0, 0, 0, 0, 0]
+    for EventCalib in Clist:
+        if LunLab[0][EventCalib] >0:
+            SCon[0] += LunLab[EventCalib]
+            seDOCun,append((LunSim[0][EventCalib] - LunLab[0)[EventCalib])**2)
